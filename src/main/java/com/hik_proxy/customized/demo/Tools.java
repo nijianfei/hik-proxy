@@ -1,4 +1,4 @@
-package com.hikvision.ga;
+package com.hik_proxy.customized.demo;
 
 import java.io.File;
 import java.io.FileOutputStream;

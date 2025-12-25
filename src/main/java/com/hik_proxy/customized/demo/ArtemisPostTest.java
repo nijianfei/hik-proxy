@@ -1,12 +1,7 @@
 package com.hik_proxy.customized.demo;   //修改包路径
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.util.HashMap;
-import java.util.Map;
-
-import com.alibaba.fastjson.JSON;
-import com.alibaba.fastjson.JSONObject;
+import com.alibaba.fastjson2.JSON;
+import com.alibaba.fastjson2.JSONObject;
 import com.hikvision.artemis.sdk.ArtemisHttpUtil;
 import com.hikvision.artemis.sdk.Response;
 import com.hikvision.artemis.sdk.config.ArtemisConfig;
@@ -16,6 +11,11 @@ import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpGet;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.HashMap;
+import java.util.Map;
 
 import static com.hikvision.artemis.sdk.util.HttpUtil.wrapClient;
 
@@ -64,7 +64,7 @@ public class ArtemisPostTest {
 			if (response.getStatusCode() != 200) {
 				throw new IOException("下载失败: " + response.getErrorMessage());
 			}
-			com.hikvision.ga.Tools.savePicToDisk(response.getResponse().getEntity().getContent(), "E:\\", "test.jpg");
+			Tools.savePicToDisk(response.getResponse().getEntity().getContent(), "E:\\", "test.jpg");
 		}
 	}
 
@@ -175,7 +175,7 @@ public class ArtemisPostTest {
 				HttpResponse execute = httpClient.execute(httpget);
 				HttpEntity entity = execute.getEntity();
 				InputStream in = entity.getContent();
-				com.hikvision.ga.Tools.savePicToDisk(in, "d:/", "test311.jpg");
+				Tools.savePicToDisk(in, "d:/", "test311.jpg");
 				//TODO 可以返回保存后的路径
 			}else{
 				System.out.println("下载出错:"+result.getBody());
@@ -226,7 +226,7 @@ public class ArtemisPostTest {
 				throw new IOException("下载失败: " + response.getErrorMessage());
 			}
 			String filePath = "D:\\download\\";
-			com.hikvision.ga.Tools.savePicToDisk(response.getResponse().getEntity().getContent(), filePath, "test.zip");
+			Tools.savePicToDisk(response.getResponse().getEntity().getContent(), filePath, "test.zip");
 		}
 	}
 
