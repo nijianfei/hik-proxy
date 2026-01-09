@@ -6,7 +6,7 @@ import lombok.Data;
 public class DownloadVideoInfoResponseDto {
     private String videoPath;
     private String videoFilename;
-    private int videoSize;
+    private long videoSize;
     private String status;
     private String msg;
 }

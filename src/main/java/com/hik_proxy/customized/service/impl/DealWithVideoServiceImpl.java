@@ -32,7 +32,10 @@ import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
+import java.util.Map;
 
 @Slf4j
 @Service
@@ -106,8 +109,6 @@ public class DealWithVideoServiceImpl implements DealWithVideoService {
                 downloadVideoInfoEntity.setVideoType("");
                 downloadVideoInfoEntity.setVideoPath(downloadVideoDto.getVideoPath());
                 downloadVideoInfoEntity.setVideoFilename(fileName);
-                downloadVideoInfoEntity.setTaskCode("");
-                downloadVideoInfoEntity.setProcess("");
                 downloadVideoInfoEntity.setByteLength(0L);
                 downloadVideoInfoEntity.setStatus(TaskCodeEnum.T10.getCode());
                 downloadVideoInfoEntity.setMsg("");
@@ -150,7 +151,7 @@ public class DealWithVideoServiceImpl implements DealWithVideoService {
         Assert.isTrue(StringUtils.isNotBlank(downloadVideoDto.getCameraIndexCode()), "摄像头ID,不能为空");
         Assert.isTrue(StringUtils.isNotBlank(downloadVideoDto.getVideoDateFrom()), "视频时间FROM,不能为空");
         Assert.isTrue(StringUtils.isNotBlank(downloadVideoDto.getVideoDateTo()), "视频时间TO,不能为空");
-        Assert.isTrue(StringUtils.isNotBlank(downloadVideoDto.getVideoType()), "视频格式区分,不能为空");
+//        Assert.isTrue(StringUtils.isNotBlank(downloadVideoDto.getVideoType()), "视频格式区分,不能为空");
         Assert.isTrue(StringUtils.isNotBlank(downloadVideoDto.getVideoPath()), "目标文件路径,不能为空");
         Assert.isTrue(StringUtils.isNotBlank(downloadVideoDto.getVideoFilename()), "目标文件名称,不能为空");
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
@@ -163,6 +164,9 @@ public class DealWithVideoServiceImpl implements DealWithVideoService {
             log.error("视频时间格式错误:{}", e.getMessage(), e);
             throw new RuntimeException("视频时间格式错误:" + e.getMessage());
         }
+        String reqNo = downloadVideoDto.getReqNo();
+        List<DownloadVideoInfoEntity> task = mapper.selectByMap(Map.of("req_no", reqNo));
+        Assert.isTrue(CollectionUtils.isEmpty(task),"reqNo已存在,禁止重复创建下载任务");
         Assert.isTrue(dateFrom.isBefore(dateTo), "视频时间TO应大于视频时间FROM");
         Assert.isTrue(isExist(downloadVideoDto.getCameraIndexCode()), "摄像头ID,不存在");
     }
@@ -181,10 +185,12 @@ public class DealWithVideoServiceImpl implements DealWithVideoService {
                     DownloadVideoInfoResponseDto dto = new DownloadVideoInfoResponseDto();
                     dto.setVideoPath(t.getVideoPath());
                     dto.setVideoFilename(t.getVideoFilename());
-                    dto.setVideoSize(0);
+                    dto.setVideoSize(t.getByteLength());
                     dto.setStatus(t.getStatus());
                     dto.setMsg(t.getMsg());
-                    infos.add(dto);
+                    if (TaskCodeEnum.T70.getCode().equals(t.getStatus()) || TaskCodeEnum.T90.getCode().equals(t.getStatus())) {
+                        infos.add(dto);
+                    }
                 });
                 CheckDownloadVideoResponseDto build = CheckDownloadVideoResponseDto.builder().reqNo(checkDownloadVideoDto.getReqNo())
                         .checkReqNo(checkReqNo).count(task.size()).invokeRes(infos).build();

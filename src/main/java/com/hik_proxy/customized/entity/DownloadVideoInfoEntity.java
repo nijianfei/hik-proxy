@@ -23,8 +23,6 @@ public class DownloadVideoInfoEntity {
     private String videoType;
     private String videoPath;
     private String videoFilename;
-    private String taskCode;
-    private String process;
     private Long byteLength;
     private String status;
     private String msg;

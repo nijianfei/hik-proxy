@@ -9,27 +9,27 @@ import java.util.concurrent.ThreadPoolExecutor;
 @Configuration
 public class ThreadPoolGroupConfig {
 
-    @Bean(name = "videoDownExecutor")
-    public ThreadPoolTaskExecutor orderTaskExecutor() {
+    @Bean(name = "videoTaskExecutor")
+    public ThreadPoolTaskExecutor videoTaskExecutor() {
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-        executor.setCorePoolSize(4);
-        executor.setMaxPoolSize(8);
-        executor.setQueueCapacity(50);
-        executor.setThreadNamePrefix("video-down-pool-");
+        executor.setCorePoolSize(10);
+        executor.setMaxPoolSize(20);
+        executor.setQueueCapacity(10);
+        executor.setThreadNamePrefix("videoTask-pool-");
         executor.setRejectedExecutionHandler(new ThreadPoolExecutor.AbortPolicy());
         executor.setWaitForTasksToCompleteOnShutdown(true);
-        executor.setAwaitTerminationSeconds(30);
+        executor.setAwaitTerminationSeconds(60);
         executor.initialize();
         return executor;
     }
 
-//    @Bean(name = "logTaskExecutor")
-    public ThreadPoolTaskExecutor logTaskExecutor() {
+    @Bean(name = "taskSliceExecutor")
+    public ThreadPoolTaskExecutor taskSliceExecutor() {
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-        executor.setCorePoolSize(2);
-        executor.setMaxPoolSize(4);
-        executor.setQueueCapacity(200);
-        executor.setThreadNamePrefix("log-pool-");
+        executor.setCorePoolSize(10);
+        executor.setMaxPoolSize(50);
+        executor.setQueueCapacity(50);
+        executor.setThreadNamePrefix("taskSlice-pool-");
         executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
         executor.setWaitForTasksToCompleteOnShutdown(true);
         executor.setAwaitTerminationSeconds(30);

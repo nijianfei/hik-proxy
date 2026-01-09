@@ -344,6 +344,9 @@ public class HikHttpUtil {
     }
 
     public static ArtemisConfig getConfig() {
+        if (config != null) {
+            return config;
+        }
         ArtemisConfig config = new ArtemisConfig();
         config.setHost("123.56.136.71:40443"); // 平台nginx所在ip及http对应端口号
         config.setAppKey("27084252");  // 秘钥appkey
