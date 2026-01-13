@@ -9,10 +9,12 @@ import com.hik_proxy.customized.dto.param.PlaybackParam;
 import com.hik_proxy.customized.entity.DownloadVideoInfoEntity;
 import com.hik_proxy.customized.enums.TaskCodeEnum;
 import com.hik_proxy.customized.mapper.DownloadVideoInfoMapper;
+import com.hik_proxy.customized.utils.FFmpegUtil;
 import com.hik_proxy.customized.utils.HikHttpUtil;
 import com.hik_proxy.customized.vo.BaseVo;
 import com.hik_proxy.customized.vo.playback.PlaybackInfoVo;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.time.StopWatch;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -39,7 +41,7 @@ public class VideoDownloadTask {
 
     @Value("${download.host}")
     private String downloadHost;
-    @Value("${download.task.maxCount:5}")
+    @Value("${download.task.maxCount:1}")
     private Integer downloadTaskMaxCount;
     @Autowired
     private DownloadVideoInfoMapper mapper;
@@ -124,11 +126,16 @@ public class VideoDownloadTask {
         List<Future> futures = new ArrayList<>();
         for (final DownloadVideoInfoEntity taskInfo : taskInfos) {
             Future<?> submit = taskSliceExecutor.submit(() -> {
+                File tempFile = null;
                 try {
                     String fullUrl = String.format("%s?beginTime=%s&endTime=%s", baseUrl, taskInfo.getVideoDateFrom(), taskInfo.getVideoDateTo());
-                    log.info("开始发送请求:{},保存到:{}", fullUrl, new File(taskInfo.getVideoPath(), taskInfo.getVideoFilename()));
-                    long fileSize = HikHttpUtil.downloadVideo(fullUrl, taskInfo.getVideoPath(), taskInfo.getVideoFilename());
-                    log.info("发送请求结束:{},保存到:{},下载完成,文件大小:{}", fullUrl, new File(taskInfo.getVideoPath(), taskInfo.getVideoFilename()), fileSize);
+                    tempFile = new File(new File(taskInfo.getVideoPath(),"TEMP"), taskInfo.getVideoFilename());
+                    log.info("开始发送请求:{},\r\n保存到临时目录:{}", fullUrl, tempFile);
+                    long fileSize = HikHttpUtil.downloadVideo(fullUrl, tempFile.getParent(), taskInfo.getVideoFilename());
+                    log.info("发送请求结束:{},\r\n保存到临时目录:{},下载完成,文件大小:{}", fullUrl, new File(tempFile.getParent(), taskInfo.getVideoFilename()), fileSize);
+                    log.info("开始转码[{}]...",taskInfo.getVideoFilename());
+                    fileSize = FFmpegUtil.convertToCompatibleMp4(tempFile, new File(taskInfo.getVideoPath(), taskInfo.getVideoFilename()));
+                    log.info("转码结束[{}],文件大小:{}",taskInfo.getVideoFilename(),fileSize);
                     taskInfo.setStatus(TaskCodeEnum.T70.getCode());
                     taskInfo.setMsg(TaskCodeEnum.T70.getName());
                     taskInfo.setByteLength(fileSize);
@@ -140,6 +147,8 @@ public class VideoDownloadTask {
                     taskInfo.setMsg(e.getMessage());
                     taskInfo.setUpdateTime(new Date());
                     mapper.updateById(taskInfo);
+                }finally {
+                    FileUtils.deleteQuietly(tempFile);
                 }
             });
             futures.add(submit);

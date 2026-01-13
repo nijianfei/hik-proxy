@@ -2,6 +2,7 @@ package com.hik_proxy.customized.service.impl;
 
 import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.TypeReference;
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.hik_proxy.customized.dto.param.PlaybackParam;
 import com.hik_proxy.customized.dto.request.CheckDownloadVideoRequestDto;
 import com.hik_proxy.customized.dto.request.DownloadVideoRequestDto;
@@ -32,10 +33,7 @@ import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 @Slf4j
 @Service
@@ -43,6 +41,7 @@ public class DealWithVideoServiceImpl implements DealWithVideoService {
 
     @Autowired
     private DownloadVideoInfoMapper mapper;
+
     @Override
     public Object downloadVideo(DownloadVideoRequestDto downloadVideoDto) {
         try {
@@ -96,7 +95,8 @@ public class DealWithVideoServiceImpl implements DealWithVideoService {
             List<DownloadVideoInfoEntity> taskList = new ArrayList<>(timeRangeList.size());
             for (int i = 0; i < timeRangeList.size(); i++) {
                 String fileName = String.format("%s_%d.mp4", downloadVideoDto.getVideoFilename(), i + 1);
-                Assert.isTrue(!new File(downloadVideoDto.getVideoPath(),fileName ).exists(), "路径下已存在指定的文件名称");
+                Assert.isTrue(!new File(downloadVideoDto.getVideoPath(), fileName).exists(), "路径下已存在指定的文件名称");
+                Assert.isTrue(!new File(new File(downloadVideoDto.getVideoPath(), "TEMP"), fileName).exists(), "路径下已存在指定的文件名称");
                 List<OffsetDateTime> timeRange = timeRangeList.get(i);
                 String beginTime = timeRange.get(0).format(DateTimeFormatter.ofPattern("yyyyMMdd'T'HHmmss"));
                 String endTime = timeRange.get(1).format(DateTimeFormatter.ofPattern("yyyyMMdd'T'HHmmss"));
@@ -166,9 +166,15 @@ public class DealWithVideoServiceImpl implements DealWithVideoService {
         }
         String reqNo = downloadVideoDto.getReqNo();
         List<DownloadVideoInfoEntity> task = mapper.selectByMap(Map.of("req_no", reqNo));
-        Assert.isTrue(CollectionUtils.isEmpty(task),"reqNo已存在,禁止重复创建下载任务");
+        Assert.isTrue(CollectionUtils.isEmpty(task), "reqNo已存在,禁止重复创建下载任务");
         Assert.isTrue(dateFrom.isBefore(dateTo), "视频时间TO应大于视频时间FROM");
         Assert.isTrue(isExist(downloadVideoDto.getCameraIndexCode()), "摄像头ID,不存在");
+        QueryWrapper warpper = new QueryWrapper();
+        warpper.eq("video_filename", String.format("%s_1.mp4", downloadVideoDto.getVideoFilename()));
+        List<DownloadVideoInfoEntity> query = mapper.selectList(warpper);
+        for (DownloadVideoInfoEntity downloadVideoInfoEntity : query) {
+            Assert.isTrue(!Objects.equals(downloadVideoDto, downloadVideoInfoEntity.getVideoFilename()), String.format("%s已存在", downloadVideoDto.getVideoFilename()));
+        }
     }
 
     @Override
@@ -181,7 +187,7 @@ public class DealWithVideoServiceImpl implements DealWithVideoService {
             List<DownloadVideoInfoEntity> task = mapper.selectByMap(Map.of("req_no", checkReqNo));
             if (CollectionUtils.isNotEmpty(task)) {
                 List<DownloadVideoInfoResponseDto> infos = new ArrayList<>(task.size());
-                task.forEach(t->{
+                task.forEach(t -> {
                     DownloadVideoInfoResponseDto dto = new DownloadVideoInfoResponseDto();
                     dto.setVideoPath(t.getVideoPath());
                     dto.setVideoFilename(t.getVideoFilename());
@@ -197,8 +203,8 @@ public class DealWithVideoServiceImpl implements DealWithVideoService {
                 Map<String, Object> result = JSON.parseObject(JSON.toJSONString(build), new TypeReference<>() {
                 });
                 return ResultUtil.success(result);
-            }else{
-                return ResultUtil.failure(String.format("checkReqNo:%s,不存在",checkReqNo));
+            } else {
+                return ResultUtil.failure(String.format("checkReqNo:%s,不存在", checkReqNo));
             }
         } catch (Exception e) {
             return ResultUtil.failure(e.getMessage());

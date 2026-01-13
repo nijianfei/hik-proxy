@@ -12,7 +12,7 @@ public class ThreadPoolGroupConfig {
     @Bean(name = "videoTaskExecutor")
     public ThreadPoolTaskExecutor videoTaskExecutor() {
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-        executor.setCorePoolSize(10);
+        executor.setCorePoolSize(5);
         executor.setMaxPoolSize(20);
         executor.setQueueCapacity(10);
         executor.setThreadNamePrefix("videoTask-pool-");
