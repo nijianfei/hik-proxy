@@ -3,10 +3,10 @@ package com.hik_proxy.customized;
 import org.junit.Test;
 
 
-class CustomizedApplicationTests {
+public class CustomizedApplicationTests {
 
 	@Test
-	void contextLoads() {
+    public void contextLoads() {
 	}
 
 }

@@ -3,6 +3,7 @@ package com.hik_proxy.customized.service.impl;
 import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.TypeReference;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.hik_proxy.customized.config.LocalResourceLockManager;
 import com.hik_proxy.customized.dto.param.PlaybackParam;
 import com.hik_proxy.customized.dto.request.CheckDownloadVideoRequestDto;
 import com.hik_proxy.customized.dto.request.DownloadVideoRequestDto;
@@ -33,7 +34,10 @@ import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
+import java.util.Map;
 
 @Slf4j
 @Service
@@ -42,10 +46,30 @@ public class DealWithVideoServiceImpl implements DealWithVideoService {
     @Autowired
     private DownloadVideoInfoMapper mapper;
 
+    @Autowired
+    private LocalResourceLockManager lockManager;
+
     @Override
     public Object downloadVideo(DownloadVideoRequestDto downloadVideoDto) {
+
+        String lockKey = null;
         try {
             checkParams(downloadVideoDto);
+            lockKey = buildLockKey(downloadVideoDto);
+            Assert.isTrue(lockManager.tryLock(lockKey, 5), "系统繁忙，请稍后重试");
+
+            String reqNo = downloadVideoDto.getReqNo();
+            List<DownloadVideoInfoEntity> task = mapper.selectByMap(Map.of("req_no", reqNo));
+            Assert.isTrue(CollectionUtils.isEmpty(task), "reqNo已存在,禁止重复创建下载任务");
+
+            Assert.isTrue(isExist(downloadVideoDto.getCameraIndexCode()), "摄像头ID,不存在");
+
+            QueryWrapper warpper = new QueryWrapper();
+            warpper.eq("video_filename", String.format("%s_1.mp4", downloadVideoDto.getVideoFilename()));
+            warpper.eq("video_path", downloadVideoDto.getVideoPath());
+            List<DownloadVideoInfoEntity> query = mapper.selectList(warpper);
+            Assert.isTrue(CollectionUtils.isEmpty(query), String.format("%s已存在", downloadVideoDto.getVideoFilename()));
+
             PlaybackParam param = buildDownParam(downloadVideoDto);
             String response = HikHttpUtil.playbackURLs(param);
             BaseVo<PlaybackInfoVo> baseVo = JSON.parseObject(response, new TypeReference<>() {
@@ -123,7 +147,13 @@ public class DealWithVideoServiceImpl implements DealWithVideoService {
         } catch (Exception e) {
             log.error("downloadVideo_Exception:{}", e.getMessage(), e);
             return ResultUtil.failure(e.getMessage());
+        } finally {
+            lockManager.unlock(lockKey);
         }
+    }
+
+    private String buildLockKey(DownloadVideoRequestDto downloadVideoDto) {
+        return downloadVideoDto.getVideoPath() + downloadVideoDto.getVideoFilename();
     }
 
     private PlaybackParam buildDownParam(DownloadVideoRequestDto downloadVideoDto) {
@@ -164,17 +194,7 @@ public class DealWithVideoServiceImpl implements DealWithVideoService {
             log.error("视频时间格式错误:{}", e.getMessage(), e);
             throw new RuntimeException("视频时间格式错误:" + e.getMessage());
         }
-        String reqNo = downloadVideoDto.getReqNo();
-        List<DownloadVideoInfoEntity> task = mapper.selectByMap(Map.of("req_no", reqNo));
-        Assert.isTrue(CollectionUtils.isEmpty(task), "reqNo已存在,禁止重复创建下载任务");
         Assert.isTrue(dateFrom.isBefore(dateTo), "视频时间TO应大于视频时间FROM");
-        Assert.isTrue(isExist(downloadVideoDto.getCameraIndexCode()), "摄像头ID,不存在");
-        QueryWrapper warpper = new QueryWrapper();
-        warpper.eq("video_filename", String.format("%s_1.mp4", downloadVideoDto.getVideoFilename()));
-        List<DownloadVideoInfoEntity> query = mapper.selectList(warpper);
-        for (DownloadVideoInfoEntity downloadVideoInfoEntity : query) {
-            Assert.isTrue(!Objects.equals(downloadVideoDto, downloadVideoInfoEntity.getVideoFilename()), String.format("%s已存在", downloadVideoDto.getVideoFilename()));
-        }
     }
 
     @Override
@@ -198,8 +218,7 @@ public class DealWithVideoServiceImpl implements DealWithVideoService {
                         infos.add(dto);
                     }
                 });
-                CheckDownloadVideoResponseDto build = CheckDownloadVideoResponseDto.builder().reqNo(checkDownloadVideoDto.getReqNo())
-                        .checkReqNo(checkReqNo).count(task.size()).invokeRes(infos).build();
+                CheckDownloadVideoResponseDto build = CheckDownloadVideoResponseDto.builder().reqNo(checkDownloadVideoDto.getReqNo()).checkReqNo(checkReqNo).count(task.size()).invokeRes(infos).build();
                 Map<String, Object> result = JSON.parseObject(JSON.toJSONString(build), new TypeReference<>() {
                 });
                 return ResultUtil.success(result);
