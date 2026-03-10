@@ -22,6 +22,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.util.Assert;
 
@@ -48,6 +49,9 @@ public class DealWithVideoServiceImpl implements DealWithVideoService {
 
     @Autowired
     private LocalResourceLockManager lockManager;
+
+    @Value("${req.check:true}")
+    private Boolean isCheck;
 
     @Override
     public Object downloadVideo(DownloadVideoRequestDto downloadVideoDto) {
@@ -167,6 +171,9 @@ public class DealWithVideoServiceImpl implements DealWithVideoService {
     }
 
     private boolean isExist(String cameraIndexCode) {
+        if (!isCheck) {
+            return true;
+        }
         try {
             String response = HikHttpUtil.queryCameraInfo(cameraIndexCode);
             BaseVo baseVo = JSON.parseObject(response, BaseVo.class);

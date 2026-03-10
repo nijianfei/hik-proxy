@@ -21,6 +21,8 @@ import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpGet;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -38,14 +40,17 @@ import java.util.Map;
 
 import static com.hikvision.artemis.sdk.util.HttpUtil.wrapClient;
 
-@Slf4j
 @Component
 public class HikHttpUtil {
 
     @Value("${artemis.config}")
     private String configJsonStr;
+    @Value("${artemis.protocol:https}")
+    private String protocol;
     private static ArtemisConfig config;
+    private static String httpSchema;
     private static final String ARTEMIS_PATH = "/artemis";
+    private static final Logger LOGGER = LoggerFactory.getLogger(HikHttpUtil.class);
 
     @PostConstruct
     public void init() {
@@ -53,10 +58,11 @@ public class HikHttpUtil {
             if (StringUtils.isNotBlank(configJsonStr) && configJsonStr.strip().startsWith("{")) {
                 config = JSONObject.parseObject(configJsonStr, ArtemisConfig.class);
             } else {
-                log.error("configJsonStr为空或格式错误,{}", configJsonStr);
+                LOGGER.error("configJsonStr为空或格式错误,{}", configJsonStr);
             }
+            httpSchema = protocol + "://";
         } catch (Exception e) {
-            log.error("configJsonStr:{},解析异常:{}", configJsonStr, e.getMessage(), e);
+            LOGGER.error("configJsonStr:{},解析异常:{}", configJsonStr, e.getMessage(), e);
             throw new RuntimeException(e);
         }
     }
@@ -76,13 +82,16 @@ public class HikHttpUtil {
         final String getCamsApi = ARTEMIS_PATH + "/api/resource/v1/cameras/indexCode";
         config = getConfig();
         Map<String, String> path = new HashMap<>() {{
-            put("http://", getCamsApi);
+            put(httpSchema, getCamsApi);
         }};
         Map<String, String> paramMap = new HashMap<>() {{
             put("cameraIndexCode", cameraIndexCode);
         }};
         String body = JSON.toJSON(paramMap).toString();
-        return ArtemisHttpUtil.doPostStringArtemis(config, path, body, null, null, "application/json");
+        String result = ArtemisHttpUtil.doPostStringArtemis(config, path, body, null, null, "application/json");
+        LOGGER.info("url:{},params:{},result:{}", httpSchema + config.host + getCamsApi, body, result);
+        return result;
+
     }
 
     public static String cameraSearch() throws Exception {
@@ -91,32 +100,38 @@ public class HikHttpUtil {
         config = getConfig();
         Map<String, String> path = new HashMap<String, String>() {
             {
-                put("http://", getCamsApi);
+                put(httpSchema, getCamsApi);
             }
         };
         Map<String, String> paramMap = new HashMap<String, String>();// post请求Form表单参数
         paramMap.put("pageNo", "1");
         paramMap.put("pageSize", "500");
         String body = JSON.toJSON(paramMap).toString();
-        return ArtemisHttpUtil.doPostStringArtemis(config, path, body, null, null, "application/json");
+        String result = ArtemisHttpUtil.doPostStringArtemis(config, path, body, null, null, "application/json");
+        LOGGER.info("url:{},params:{},result:{}", httpSchema + config.host + getCamsApi, body, result);
+        return result;
     }
 
     public static String playbackURLs(PlaybackParam param) throws Exception {
         final String getCamsApi = ARTEMIS_PATH + "/api/video/v2/cameras/playbackURLs";
         config = getConfig();
         Map<String, String> path = new HashMap<>() {{
-            put("http://", getCamsApi);
+            put(httpSchema, getCamsApi);
         }};
         String body = JSON.toJSONString(param);
-        return ArtemisHttpUtil.doPostStringArtemis(config, path, body, null, null, "application/json");
+        String result = ArtemisHttpUtil.doPostStringArtemis(config, path, body, null, null, "application/json");
+        LOGGER.info("url:{},params:{},result:{}", httpSchema + config.host + getCamsApi, body, result);
+        return result;
+
     }
 
-    public static long downloadVideo(String url, String savePath ,String fileName) throws Exception {
+    public static long downloadVideo(String url, String savePath, String fileName) throws Exception {
         final OkHttpClient client = new OkHttpClient();
         Request request = new Request.Builder()
                 .url(url)
                 .build();
 
+        LOGGER.info("url:{},path:{},fileName:{}", url, savePath, fileName);
         try (okhttp3.Response response = client.newCall(request).execute();) {
             if (!response.isSuccessful()) {
                 throw new IOException("Unexpected code " + response);
@@ -128,7 +143,7 @@ public class HikHttpUtil {
             }
 
             // 确保目标目录存在
-            Path dest = Paths.get(savePath,fileName);
+            Path dest = Paths.get(savePath, fileName);
             Files.createDirectories(dest.getParent());
 
             try (InputStream inputStream = body.byteStream();
@@ -165,7 +180,7 @@ public class HikHttpUtil {
         String body = JSON.toJSON(paramMap).toString();
         Map<String, String> path = new HashMap<String, String>(2) {
             {
-                put("http://", getCamsApi);
+                put(httpSchema, getCamsApi);
             }
         };
         return ArtemisHttpUtil.doPostStringArtemis(config, path, body, null, null, "application/json");
@@ -196,7 +211,7 @@ public class HikHttpUtil {
         String body = JSON.toJSON(paramMap).toString();
         Map<String, String> path = new HashMap<String, String>(2) {
             {
-                put("http://", getCamsApi);
+                put(httpSchema, getCamsApi);
             }
         };
         return ArtemisHttpUtil.doPostStringArtemis(config, path, body, null, null, "application/json");
@@ -216,7 +231,7 @@ public class HikHttpUtil {
         final String getSecurityApi = "/artemis" + "/api/visitor/v1/record/pictures"; // 接口路径
         Map<String, String> path = new HashMap<String, String>(2) {
             {
-                put("http://", getSecurityApi);
+                put(httpSchema, getSecurityApi);
             }
         };
         Map<String, String> head = new HashMap<String, String>(2) {  //get请求的head参数
@@ -279,7 +294,7 @@ public class HikHttpUtil {
         final String getSecurityApi = "/artemis" + "/api/fedof/v1/org/downloadCameraCSV"; // 接口路径
         Map<String, String> path = new HashMap<String, String>(2) {
             {
-                put("http://", getSecurityApi);
+                put(httpSchema, getSecurityApi);
             }
         };
         Map<String, String> head = new HashMap<String, String>(2) {  //get请求的head参数
@@ -332,7 +347,7 @@ public class HikHttpUtil {
         String body = JSON.toJSON(paramMap).toString();
         Map<String, String> path = new HashMap<String, String>(2) {
             {
-                put("http://", getCamsApi);
+                put(httpSchema, getCamsApi);
             }
         };
         Map<String, String> head = new HashMap<String, String>(2) {

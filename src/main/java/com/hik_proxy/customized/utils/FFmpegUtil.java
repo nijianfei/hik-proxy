@@ -62,7 +62,9 @@ public class FFmpegUtil {
             Future<?> readerFuture = executor.submit(() -> {
                 try (var reader = new java.util.Scanner(finalProcess.getInputStream()).useDelimiter("\\A")) {
                     if (reader.hasNext()) {
-                        outputLog.append(reader.next());
+                        String next = reader.next();
+                        log.debug("FFmpeg output_next: {}", next);
+                        outputLog.append(next);
                     }
                 } catch (Exception e) {
                     log.warn("Error reading FFmpeg output", e);
